@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apenas um Duelo: Batalha no Parque RPG</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bangers&family=Chakra+Petch:wght@500;700;900&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --font-pixel: 'Press Start 2P', monospace;
+            --font-title: 'Bangers', cursive;
+            --font-ui: 'Chakra Petch', sans-serif;
+            --font-body: 'Fredoka', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: #080511;
+            color: #ffffff;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .font-pixel { font-family: var(--font-pixel); }
+        .font-title { font-family: var(--font-title); letter-spacing: 1px; }
+        .font-ui { font-family: var(--font-ui); }
+
+        /* RPG Duel Box Styles */
+        .retro-box {
+            background: rgba(15, 23, 42, 0.95);
+            border: 4px solid #1e293b;
+            box-shadow: inset 0 0 0 3px #fbbf24, 0 8px 16px rgba(0,0,0,0.6);
+            border-radius: 14px;
+        }
+
+        .retro-status-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+            border: 3px solid #475569;
+            box-shadow: inset 0 0 0 2px #000, 0 6px 12px rgba(0, 0, 0, 0.5);
+            border-radius: 14px;
+        }
+
+        .comic-card {
+            border: 3px solid #0f172a;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.8);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .comic-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.9);
+        }
+
+        /* Isometric Battle Platform Effects */
+        .platform-ellipse {
+            background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.65) 80%);
+            border-radius: 50%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            transform: rotateX(65deg);
+        }
+
+        /* Flying Projectile Animation */
+        .flying-projectile {
+            position: absolute;
+            z-index: 45;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* QTE Timing Bar Pulse */
+        @keyframes qteGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(250, 204, 21, 0.8); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 1); }
+        }
+        .qte-active-bar {
+            animation: qteGlow 0.6s infinite alternate;
+        }
+
+        /* Animations */
+        @keyframes floatIdle {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-7px); }
+        }
+
+        @keyframes duelSlideInLeft {
+            0% { transform: translateX(-120%) scale(0.8); opacity: 0; }
+            100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes duelSlideInRight {
+            0% { transform: translateX(120%) scale(0.8); opacity: 0; }
+            100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes attackLungeLeft {
+            0% { transform: translate(0, 0) scale(1); }
+            40% { transform: translate(140px, -40px) scale(1.2) rotate(10deg); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        @keyframes attackLungeRight {
+            0% { transform: translate(0, 0) scale(1); }
+            40% { transform: translate(-140px, 40px) scale(1.2) rotate(-10deg); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        @keyframes faintDown {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; filter: brightness(0); }
+        }
+
+        @keyframes hurtFlash {
+            0%, 100% { opacity: 1; filter: none; }
+            25%, 75% { opacity: 0.2; filter: brightness(3) sepia(1) hue-rotate(-50deg); }
+        }
+
+        .animate-idle { animation: floatIdle 2.8s ease-in-out infinite; }
+        .slide-in-left { animation: duelSlideInLeft 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .slide-in-right { animation: duelSlideInRight 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .attack-left { animation: attackLungeLeft 0.45s ease-in-out; }
+        .attack-right { animation: attackLungeRight 0.45s ease-in-out; }
+        .hurt-anim { animation: hurtFlash 0.4s ease-in-out 2; }
+        .faint-anim { animation: faintDown 0.8s ease-in forwards; }
+
+        /* Floating Damage Popups */
+        .dmg-popup {
+            position: absolute;
+            font-family: var(--font-pixel);
+            font-size: 1.25rem;
+            pointer-events: none;
+            z-index: 60;
+            animation: floatUpFade 1.2s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+            text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+        }
+
+        @keyframes floatUpFade {
+            0% { opacity: 0; transform: translateY(10px) scale(0.6); }
+            20% { opacity: 1; transform: translateY(-20px) scale(1.3); }
+            70% { opacity: 1; transform: translateY(-45px) scale(1); }
+            100% { opacity: 0; transform: translateY(-70px) scale(0.8); }
+        }
+
+        #flashOverlay {
+            transition: opacity 0.3s ease-out;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); }
+        ::-webkit-scrollbar-thumb { background: #eab308; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-yellow-400 selection:text-black">
+
+    <!-- Flash Overlay for Battle Encounter & Hits -->
+    <div id="flashOverlay" class="fixed inset-0 bg-white pointer-events-none z-50 opacity-0"></div>
+
+    <!-- Flying Laser/Projectile Element -->
+    <div id="flyingProjectile" class="flying-projectile hidden"></div>
+
+    <!-- Header Navigation -->
+    <header class="w-full bg-slate-950/90 border-b-4 border-yellow-500/80 px-4 py-2.5 flex justify-between items-center z-40 relative shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-yellow-400 to-pink-500 flex items-center justify-center font-title text-2xl text-black border-2 border-black shadow">
+                ⚡
+            </div>
+            <div>
+                <h1 class="font-title text-2xl md:text-3xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-cyan-300 to-pink-400 drop-shadow">
+                    APENAS UM DUELO: BATALHA NO PARQUE
+                </h1>
+                <p class="hidden sm:block text-[11px] font-pixel text-cyan-400">EDIÇÃO DUELO ANOS 80 RPG</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 md:gap-3">
+            <button id="soundToggle" onclick="toggleAudio()" class="comic-card bg-slate-900 hover:bg-slate-800 text-yellow-300 font-ui px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border border-yellow-500/60">
+                <span id="soundIcon">🔊</span> <span id="soundLabel" class="hidden md:inline">SOM: ON</span>
+            </button>
+            <button onclick="showMainMenu()" class="comic-card bg-rose-800 hover:bg-rose-700 text-white font-ui px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-400">
+                🏠 MENU
+            </button>
+        </div>
+    </header>
+
+    <!-- Canvas for Particle FX -->
+    <canvas id="fxCanvas" class="fixed inset-0 pointer-events-none z-30"></canvas>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 flex flex-col justify-center items-center p-2 md:p-4 relative">
+
+        <!-- ==================== MAIN MENU & SELECTION ==================== -->
+        <section id="mainMenuScreen" class="w-full max-w-6xl flex flex-col items-center py-4 px-2 space-y-6">
+            
+            <!-- Banner Title -->
+            <div class="text-center space-y-2">
+                <span class="bg-yellow-400 text-black font-pixel text-[10px] md:text-xs px-3 py-1 rounded-full uppercase tracking-widest font-bold shadow">
+                    SISTEMA DE LUTA RETRO EM TURNOS
+                </span>
+                <h2 class="font-title text-4xl md:text-6xl text-yellow-300 drop-shadow-[0_5px_0_rgba(0,0,0,1)] tracking-wide">
+                    ESCOLHA SEU MODO DE JOGO!
+                </h2>
+                <p class="text-cyan-300 font-ui text-sm md:text-base max-w-xl mx-auto font-medium">
+                    Ajude Mordecai e a galera do Parque a resolver rivalidades na porrada com golpes táticos!
+                </p>
+
+                <!-- Type Triangle Legend Guide -->
+                <div class="flex flex-wrap justify-center gap-3 pt-2 text-[11px] font-pixel">
+                    <span class="bg-red-950 text-orange-300 border border-orange-500/60 px-2.5 py-1 rounded-lg">⚡ CAOS / RUA (Rigby, Musculoso)</span>
+                    <span class="text-yellow-300">➔ VENCE ➔</span>
+                    <span class="bg-purple-950 text-purple-300 border border-purple-500/60 px-2.5 py-1 rounded-lg">✨ CÓSMICO (Pairulito, Fantasmão, Morte)</span>
+                    <span class="text-yellow-300">➔ VENCE ➔</span>
+                    <span class="bg-blue-950 text-cyan-300 border border-cyan-500/60 px-2.5 py-1 rounded-lg">🛡️ FORÇA (Mordecai, Benson, Saltitão)</span>
+                </div>
+            </div>
+
+            <!-- Main Mode Buttons -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl">
+                <button onclick="openStoryMode()" class="comic-card bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-title text-2xl p-4 rounded-2xl border-4 border-yellow-200 shadow-2xl flex flex-col items-center justify-center gap-1 group">
+                    <span class="text-3xl group-hover:scale-125 transition-transform">📖</span>
+                    <span>MODO HISTÓRIA</span>
+                    <span class="font-pixel text-[9px] text-slate-900 bg-yellow-200/80 px-2 py-0.5 rounded">6 CAPÍTULOS DE SAGA</span>
+                </button>
+
+                <button onclick="setGameMode('pve')" class="comic-card bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-title text-2xl p-4 rounded-2xl border-4 border-cyan-300 shadow-2xl flex flex-col items-center justify-center gap-1 group">
+                    <span class="text-3xl group-hover:scale-125 transition-transform">🕹️</span>
+                    <span>1 JOGADOR (PvE)</span>
+                    <span class="font-pixel text-[9px] text-cyan-100 bg-cyan-900/80 px-2 py-0.5 rounded">DUELO RÁPIDO</span>
+                </button>
+
+                <button onclick="setGameMode('pvp')" class="comic-card bg-gradient-to-r from-pink-600 to-purple-700 hover:from-pink-500 hover:to-purple-600 text-white font-title text-2xl p-4 rounded-2xl border-4 border-pink-300 shadow-2xl flex flex-col items-center justify-center gap-1 group">
+                    <span class="text-3xl group-hover:scale-125 transition-transform">⚔️</span>
+                    <span>2 JOGADORES (PvP)</span>
+                    <span class="font-pixel text-[9px] text-pink-100 bg-pink-900/80 px-2 py-0.5 rounded">DUELO LOCAL</span>
+                </button>
+            </div>
+
+            <!-- ARCADE SELECTION SECTION -->
+            <div id="arcadeSelectionBox" class="w-full flex flex-col items-center space-y-5">
+                
+                <!-- Stage Selector -->
+                <div class="flex flex-col sm:flex-row items-center gap-3 bg-slate-900/90 border-2 border-yellow-500/50 p-3 rounded-2xl w-full max-w-3xl justify-between">
+                    <span class="font-title text-yellow-300 text-xl flex items-center gap-2">
+                        <span>🏞️</span> SELECIONE O CENÁRIO DE BATALHA:
+                    </span>
+                    <select id="stageSelect" class="bg-slate-950 text-cyan-300 font-ui font-bold px-4 py-2 rounded-xl border border-cyan-400 outline-none cursor-pointer">
+                        <option value="park">🌳 A Casa do Parque (Dia)</option>
+                        <option value="coffee">☕ Cafeteria do Parque (Coffee Shop)</option>
+                        <option value="arcade">🕹️ Fliperama / Reino dos Videogames</option>
+                        <option value="cosmic">🌌 O Vazio Cósmico / Batalha Final</option>
+                    </select>
+                </div>
+
+                <!-- Status Indicator -->
+                <div id="selectionStatus" class="bg-purple-950/90 border-2 border-pink-500/60 rounded-xl px-6 py-2 text-center shadow-lg animate-pulse">
+                    <span class="font-ui font-bold text-lg text-pink-300">
+                        LUTADOR 1: Escolha seu lutador!
+                    </span>
+                </div>
+
+                <!-- Roster Grid -->
+                <div id="rosterGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 w-full">
+                    <!-- Cards injected via JS -->
+                </div>
+
+                <!-- Preview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                    <div id="p1Preview" class="retro-status-card p-4 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+                        <div class="absolute top-2 right-2 text-[10px] font-pixel bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded border border-cyan-400">LUTADOR P1</div>
+                        <div id="p1PreviewContent" class="text-gray-400 text-center my-auto font-ui text-sm">Selecione um lutador...</div>
+                    </div>
+
+                    <div id="p2Preview" class="retro-status-card p-4 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+                        <div id="p2Tag" class="absolute top-2 right-2 text-[10px] font-pixel bg-pink-900 text-pink-300 px-2 py-0.5 rounded border border-pink-400">OPONENTE</div>
+                        <div id="p2PreviewContent" class="text-gray-400 text-center my-auto font-ui text-sm">Aguardando seleção...</div>
+                    </div>
+                </div>
+
+                <!-- Start Arcade Battle Button -->
+                <button id="startBattleBtn" onclick="startBattle()" disabled class="comic-card bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-title text-3xl px-12 py-3.5 rounded-2xl border-4 border-yellow-300 shadow-2xl tracking-wider transition-all transform hover:scale-105 active:scale-95">
+                    ⚡ INICIAR DUELO NO PARQUE! ⚡
+                </button>
+            </div>
+
+        </section>
+
+
+        <!-- ==================== STORY MODE CAMPAIGN MAP SCREEN ==================== -->
+        <section id="storyMapScreen" class="w-full max-w-5xl flex flex-col items-center py-4 px-2 space-y-6 hidden">
+            <div class="text-center space-y-2">
+                <span class="bg-amber-400 text-black font-pixel text-xs px-3 py-1 rounded-full uppercase font-bold shadow">
+                    MODO CAMPANHA HISTÓRIA
+                </span>
+                <h2 class="font-title text-4xl md:text-6xl text-yellow-300 drop-shadow-[0_5px_0_rgba(0,0,0,1)]">
+                    A SAGA DO PARQUE
+                </h2>
+                <p class="text-cyan-300 font-ui text-sm max-w-xl mx-auto">
+                    Complete os 6 capítulos para libertar o Parque das forças do Caos Cósmico!
+                </p>
+            </div>
+
+            <div id="storyChapterGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                <!-- Injected dynamically via JavaScript -->
+            </div>
+
+            <button onclick="showMainMenu()" class="comic-card bg-slate-800 hover:bg-slate-700 text-yellow-300 font-title text-xl px-8 py-2 rounded-xl border border-slate-600">
+                ⬅️ VOLTAR AO MENU PRINCIPAL
+            </button>
+        </section>
+
+
+        <!-- ==================== RETRO STYLE BATTLE ARENA ==================== -->
+        <section id="battleScreen" class="w-full max-w-5xl flex flex-col items-center hidden space-y-3">
+            
+            <!-- Dynamic Background Battle Stage Box -->
+            <div id="arenaStage" class="w-full h-[380px] md:h-[430px] rounded-3xl retro-box relative overflow-hidden flex flex-col justify-between p-4 shadow-2xl transition-all duration-500">
+                
+                <!-- Dynamic SVG Background Art Container -->
+                <div id="bgArtContainer" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+                <!-- INTERACTIVE TIMING BAR (QTE MINI-GAME OVERLAY) -->
+                <div id="qteOverlay" class="absolute inset-x-4 top-1/2 -translate-y-1/2 z-40 bg-slate-950/90 border-4 border-yellow-400 p-4 rounded-2xl hidden flex flex-col items-center shadow-2xl qte-active-bar">
+                    <div class="font-title text-2xl md:text-3xl text-yellow-300 mb-1 animate-bounce">
+                        ⚡ TIMING PERFEITO! CLIQUE OU PRESSIONE ESPAÇO! ⚡
+                    </div>
+                    <div class="text-xs font-pixel text-cyan-300 mb-3">PARE O PONTEIRO NA ZONA VERDE PARA +30% DE DANO!</div>
+                    
+                    <!-- Timing Bar Track -->
+                    <div class="w-full max-w-md h-8 bg-slate-900 border-2 border-slate-700 rounded-full relative overflow-hidden shadow-inner flex items-center">
+                        <div class="absolute left-[40%] w-1/5 h-full bg-emerald-500/80 border-x-2 border-yellow-300"></div>
+                        <div class="absolute left-[46%] w-[8%] h-full bg-yellow-300"></div>
+                        <div id="qteMarker" class="absolute top-0 bottom-0 w-3 bg-red-500 border border-white shadow-[0_0_10px_#ef4444]" style="left: 0%;"></div>
+                    </div>
+
+                    <button onclick="triggerQTEHit()" class="mt-3 comic-card bg-yellow-400 hover:bg-yellow-300 text-black font-title text-xl px-8 py-1.5 rounded-xl border-2 border-black">
+                        🎯 ATACAR AGORA!
+                    </button>
+                </div>
+
+                <!-- ================= TOP RIGHT OPPONENT HUD & PLATFORM ================= -->
+                <!-- Enemy Status HUD -->
+                <div class="relative z-20 flex justify-start items-start">
+                    <div id="enemyHudCard" class="retro-status-card p-3 w-64 md:w-72 shadow-2xl transform transition-all">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-1.5 truncate">
+                                <span id="enemyTypeBadge" class="text-xs">⚡</span>
+                                <span id="enemyName" class="font-title text-xl text-pink-400 tracking-wide truncate">RIGBY</span>
+                            </div>
+                            <span id="enemyLevel" class="font-pixel text-[10px] text-yellow-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700">Nv. 50</span>
+                        </div>
+                        
+                        <!-- Health Bar -->
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="font-pixel text-[9px] text-emerald-400 font-bold">HP</span>
+                            <div class="flex-1 bg-slate-950 h-3.5 rounded-full border border-slate-700 overflow-hidden relative shadow-inner">
+                                <div id="enemyHpBar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500 rounded-full" style="width: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- EP Bar & Buffs / Statuses -->
+                        <div class="flex justify-between items-center text-[10px] font-ui pt-1 border-t border-slate-800">
+                            <div class="flex items-center gap-1">
+                                <span class="text-cyan-400 font-pixel text-[8px]">EP:</span>
+                                <div class="w-16 bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                                    <div id="enemyEpBar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div id="enemyBuffs" class="flex gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OPPONENT SPRITE & PLATFORM (Top Right) -->
+                <div class="absolute top-12 right-8 md:right-20 z-10 flex flex-col items-center">
+                    <div id="enemyDmgAnchor" class="absolute -top-10 left-1/2 -translate-x-1/2 z-30"></div>
+                    
+                    <div id="enemySpriteWrap" class="relative animate-idle slide-in-right">
+                        <div id="enemySprite" class="w-36 h-40 md:w-48 md:h-52 flex items-center justify-center filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]"></div>
+                    </div>
+                    <div id="enemyPlatform" class="w-44 h-16 md:w-56 md:h-20 platform-ellipse bg-green-800/80 border-4 border-green-500/60 -mt-8 -z-10"></div>
+                </div>
+
+
+                <!-- ================= BOTTOM LEFT PLAYER HUD & PLATFORM ================= -->
+                <!-- PLAYER SPRITE & PLATFORM (Bottom Left) -->
+                <div class="absolute bottom-6 left-6 md:left-16 z-20 flex flex-col items-center">
+                    <div id="playerDmgAnchor" class="absolute -top-10 left-1/2 -translate-x-1/2 z-30"></div>
+                    
+                    <div id="playerSpriteWrap" class="relative animate-idle slide-in-left">
+                        <div id="playerSprite" class="w-40 h-44 md:w-52 md:h-56 flex items-center justify-center filter drop-shadow-[0_12px_12px_rgba(0,0,0,0.9)]"></div>
+                    </div>
+                    <div id="playerPlatform" class="w-48 h-18 md:w-64 md:h-24 platform-ellipse bg-emerald-700/80 border-4 border-emerald-400/60 -mt-10 -z-10"></div>
+                </div>
+
+                <!-- Player Status HUD -->
+                <div class="relative z-20 flex justify-end items-end self-end mt-auto">
+                    <div id="playerHudCard" class="retro-status-card p-3 w-64 md:w-72 shadow-2xl transform transition-all">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-1.5 truncate">
+                                <span id="playerTypeBadge" class="text-xs">🛡️</span>
+                                <span id="playerName" class="font-title text-xl text-cyan-300 tracking-wide truncate">MORDECAI</span>
+                            </div>
+                            <span id="playerLevel" class="font-pixel text-[10px] text-yellow-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700">Nv. 50</span>
+                        </div>
+                        
+                        <!-- Health Bar -->
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="font-pixel text-[9px] text-emerald-400 font-bold">HP</span>
+                            <div class="flex-1 bg-slate-950 h-3.5 rounded-full border border-slate-700 overflow-hidden relative shadow-inner">
+                                <div id="playerHpBar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500 rounded-full" style="width: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Numerical HP Text & EP Bar -->
+                        <div class="flex justify-between items-center text-[10px] font-ui pt-1 border-t border-slate-800">
+                            <span id="playerHpText" class="font-pixel text-[9px] text-white">280 / 280</span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-cyan-400 font-pixel text-[8px]">EP:</span>
+                                <div class="w-16 bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                                    <div id="playerEpBar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div id="playerBuffs" class="flex gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- ==================== DUAL COMMAND PANEL ==================== -->
+            <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-3">
+                
+                <!-- Dialogue Text Window (Left 7 Cols) -->
+                <div class="md:col-span-7 retro-box p-4 flex flex-col justify-between min-h-[140px] relative overflow-hidden bg-slate-950">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1 mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-pixel text-[9px] text-yellow-400 uppercase tracking-wider">💬 BATALHA DO PARQUE</span>
+                            <!-- Combo Hype Counter Badge -->
+                            <span id="comboHypeBadge" class="hidden font-pixel text-[9px] text-yellow-300 bg-amber-950 border border-yellow-500 px-2 py-0.5 rounded animate-pulse">
+                                🔥 HYPE COMBO x1 (+5%)
+                            </span>
+                        </div>
+                        <span id="turnRoundBadge" class="font-ui text-xs text-gray-400">RODADA 1</span>
+                    </div>
+
+                    <!-- Typewriter Text Box -->
+                    <div id="dialogueText" class="font-pixel text-xs md:text-sm text-white leading-relaxed flex-1 flex items-center">
+                        O que Mordecai vai fazer?
+                    </div>
+
+                    <!-- Matchup Advantage Helper Banner -->
+                    <div id="matchupBanner" class="font-pixel text-[9px] text-yellow-300 pt-1"></div>
+
+                    <div class="flex justify-between items-center text-[10px] text-gray-400 font-ui pt-2 border-t border-slate-900">
+                        <span id="activeFighterTag">Vez do Jogador 1</span>
+                        <span id="aiStatusBadge" class="hidden text-pink-400 font-bold animate-pulse">🤖 Oponente pensando...</span>
+                    </div>
+                </div>
+
+                <!-- 4-Button Menu Window (Right 5 Cols) -->
+                <div class="md:col-span-5 retro-box p-3 grid grid-cols-2 gap-2.5 bg-slate-900">
+                    <!-- Skill 1 -->
+                    <button id="btnSkill1" onclick="executeSkill(1)" class="comic-card bg-cyan-950 hover:bg-cyan-900 border-2 border-cyan-400 p-2.5 rounded-xl flex flex-col justify-between text-left transition-all group">
+                        <span class="font-title text-cyan-300 group-hover:text-yellow-300 text-base leading-tight" id="s1Name">Ataque 1</span>
+                        <span class="font-pixel text-[8px] text-cyan-200 mt-1" id="s1Ep">+20 EP</span>
+                    </button>
+
+                    <!-- Skill 2 -->
+                    <button id="btnSkill2" onclick="executeSkill(2)" class="comic-card bg-purple-950 hover:bg-purple-900 border-2 border-purple-400 p-2.5 rounded-xl flex flex-col justify-between text-left transition-all group">
+                        <span class="font-title text-purple-300 group-hover:text-yellow-300 text-base leading-tight" id="s2Name">Ataque 2</span>
+                        <span class="font-pixel text-[8px] text-purple-200 mt-1" id="s2Ep">+25 EP</span>
+                    </button>
+
+                    <!-- Skill 3 (Ultimate) -->
+                    <button id="btnSkill3" onclick="executeSkill(3)" class="comic-card bg-rose-950 hover:bg-rose-900 border-2 border-rose-500 p-2.5 rounded-xl flex flex-col justify-between text-left transition-all group relative overflow-hidden">
+                        <div id="s3LockOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center font-pixel text-[9px] text-rose-400 z-10">
+                            🔒 100 EP
+                        </div>
+                        <span class="font-title text-rose-400 group-hover:text-yellow-300 text-base leading-tight" id="s3Name">SUPREMO</span>
+                        <span class="font-pixel text-[8px] text-rose-200 mt-1">🔥 100 EP</span>
+                    </button>
+
+                    <!-- Bag / Items Button -->
+                    <button id="btnBag" onclick="openBagMenu()" class="comic-card bg-amber-950 hover:bg-amber-900 border-2 border-amber-400 p-2.5 rounded-xl flex flex-col justify-between text-left transition-all group">
+                        <span class="font-title text-amber-300 group-hover:text-yellow-300 text-base leading-tight">🎒 MOCHILA</span>
+                        <span class="font-pixel text-[8px] text-amber-200 mt-1">ITENS DE CURA</span>
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==================== BAG / ITEM POPUP MODAL ==================== -->
+        <div id="bagModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+            <div class="retro-box p-5 max-w-md w-full text-center relative bg-slate-900 border-yellow-400">
+                <h3 class="font-title text-3xl text-yellow-300 mb-1">🎒 MOCHILA DO PARQUE</h3>
+                <p class="text-xs font-ui text-gray-300 mb-4">Escolha um item consumível para usar neste turno:</p>
+
+                <div class="space-y-3 text-left">
+                    <button onclick="useBagItem('coffee')" class="w-full comic-card bg-slate-950 hover:bg-slate-800 p-3 rounded-xl border border-amber-400 flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">☕</span>
+                            <div>
+                                <div class="font-title text-lg text-amber-300">Café Expresso da Margaret</div>
+                                <div class="text-[11px] font-body text-gray-300">Restaura +90 de HP e concede +20 EP.</div>
+                            </div>
+                        </div>
+                        <span id="countCoffee" class="font-pixel text-xs text-yellow-300 bg-amber-950 px-2 py-1 rounded">x2</span>
+                    </button>
+
+                    <button onclick="useBagItem('sandwich')" class="w-full comic-card bg-slate-950 hover:bg-slate-800 p-3 rounded-xl border border-emerald-400 flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">🥪</span>
+                            <div>
+                                <div class="font-title text-lg text-emerald-300">Sanduíche Mortal</div>
+                                <div class="text-[11px] font-body text-gray-300">Restaura +150 de HP e limpa debuffs!</div>
+                            </div>
+                        </div>
+                        <span id="countSandwich" class="font-pixel text-xs text-yellow-300 bg-emerald-950 px-2 py-1 rounded">x1</span>
+                    </button>
+
+                    <button onclick="useBagItem('soda')" class="w-full comic-card bg-slate-950 hover:bg-slate-800 p-3 rounded-xl border border-cyan-400 flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">🥤</span>
+                            <div>
+                                <div class="font-title text-lg text-cyan-300">Soda Hiperenergética</div>
+                                <div class="text-[11px] font-body text-gray-300">Preenche instantaneamente 100 EP!</div>
+                            </div>
+                        </div>
+                        <span id="countSoda" class="font-pixel text-xs text-yellow-300 bg-cyan-950 px-2 py-1 rounded">x1</span>
+                    </button>
+                </div>
+
+                <button onclick="closeBagMenu()" class="mt-5 comic-card bg-rose-800 hover:bg-rose-700 text-white font-title text-lg px-6 py-1.5 rounded-xl border border-rose-400">
+                    CANCELAR
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ==================== VISUAL NOVEL STORY CUTSCENE OVERLAY ==================== -->
+        <div id="storyCutsceneModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex flex-col justify-end z-50 hidden p-3 md:p-6">
+            
+            <div class="w-full max-w-4xl mx-auto retro-box p-4 bg-slate-950 border-cyan-400 flex flex-col md:flex-row items-center gap-4 relative">
+                <!-- Speaker Avatar -->
+                <div class="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-slate-900 border-2 border-yellow-400 p-2 flex items-center justify-center shrink-0">
+                    <img id="cutsceneAvatar" src="" alt="Avatar" class="w-full h-full object-contain filter drop-shadow">
+                </div>
+
+                <!-- Dialogue content -->
+                <div class="flex-1 space-y-2 text-left">
+                    <div id="cutsceneSpeaker" class="font-title text-2xl text-yellow-300 tracking-wider">MORDECAI</div>
+                    <div id="cutsceneText" class="font-pixel text-xs md:text-sm text-cyan-100 leading-relaxed min-h-[50px]">
+                        "...
+                    </div>
+                </div>
+
+                <!-- Next Button -->
+                <button onclick="advanceStoryDialogue()" class="comic-card bg-yellow-400 hover:bg-yellow-300 text-black font-title text-xl px-6 py-3 rounded-xl border-2 border-black self-end shrink-0 animate-pulse">
+                    AVANÇAR ➔
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ==================== VICTORY / DEFEAT MODAL ==================== -->
+        <div id="victoryModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-50 hidden p-4">
+            <div class="retro-box bg-slate-900 border-4 border-yellow-400 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl relative">
+                <div class="w-20 h-20 mx-auto -mt-14 mb-3 rounded-full bg-yellow-400 border-4 border-black flex items-center justify-center font-title text-4xl text-black shadow-lg">
+                    🏆
+                </div>
+                <h2 id="winnerTitle" class="font-title text-4xl text-yellow-300 drop-shadow-[0_3px_0_rgba(0,0,0,1)]">
+                    MORDECAI VENCEU!
+                </h2>
+                <p id="winnerSub" class="text-gray-300 font-body text-sm mt-2 mb-6">
+                    A batalha no parque terminou em uma vitória lendária!
+                </p>
+
+                <div class="space-y-3">
+                    <button id="victoryNextBtn" onclick="rematch()" class="w-full comic-card bg-emerald-600 hover:bg-emerald-500 text-white font-title text-2xl py-3 rounded-xl border-2 border-emerald-300 shadow-lg">
+                        🔄 JOGAR NOVAMENTE
+                    </button>
+                    <button onclick="showMainMenu()" class="w-full comic-card bg-slate-800 hover:bg-slate-700 text-yellow-300 font-title text-xl py-2.5 rounded-xl border-2 border-slate-600 shadow-lg">
+                        🏠 SELEÇÃO DE MODO
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full bg-slate-950 py-2 text-center text-xs text-gray-400 border-t border-slate-800 font-ui">
+        Apenas um Show - RPG Duelo no Parque &copy; Regular Show Fan Game RPG em Canvas/JS
+    </footer>
+
+
+    <!-- ==================== JAVASCRIPT GAME ENGINE ==================== -->
+    <script>
+        /* -------------------------------------------------------------
+         * 1. CHARACTER DATABASE & COMBAT TYPES
+         * Types:
+         *   - 'caos': ⚡ Caos / Rua (Rigby, Musculoso)
+         *   - 'cosmico': ✨ Cósmico / Sobrenatural (Pairulito, Fantasmão, Morte)
+         *   - 'forca': 🛡️ Força / Disciplina (Mordecai, Benson, Saltitão)
+         * Advantage Triangle: Caos > Cósmico > Força > Caos
+         * ------------------------------------------------------------- */
+        const TYPE_DATA = {
+            caos: { name: 'Caos / Rua', icon: '⚡', color: 'text-amber-400', bg: 'bg-amber-950' },
+            cosmico: { name: 'Cósmico', icon: '✨', color: 'text-purple-400', bg: 'bg-purple-950' },
+            forca: { name: 'Força / Disciplina', icon: '🛡️', color: 'text-cyan-400', bg: 'bg-cyan-950' }
+        };
+
+        const CHARACTERS = {
+            mordecai: {
+                id: 'mordecai',
+                name: 'Mordecai',
+                type: 'forca',
+                img: 'decai.png',
+                fallbackIcon: '🐦',
+                color: '#3b82f6',
+                tagline: 'Gaio-Azul Disciplinado',
+                stats: { hp: 280, maxHp: 280, atk: 40, def: 15, ini: 44, crit: 25, ep: 0 },
+                skills: {
+                    s1: { name: 'Soco Mortal', desc: 'Ataque rápido de artes marciais. (+20 EP)', ratio: 1.0, epGain: 20 },
+                    s2: { name: 'Grito OOOOHHH!', desc: 'Comemora com Rigby! Aumenta ATK (+20%) e INI (+15) por 2 turnos. (+25 EP)', ratio: 0, epGain: 25, buffSelf: { atkPct: 0.20, ini: 15, turns: 2 } },
+                    s3: { name: 'Super Laser do Teclado', desc: 'Dispara raios sônicos no ritmo do teclado mágico dos anos 80!', ratio: 2.35, epCost: 100, projColor: '#38bdf8' }
+                }
+            },
+            rigby: {
+                id: 'rigby',
+                name: 'Rigby',
+                type: 'caos',
+                img: 'Rigby.webp',
+                fallbackIcon: '🦝',
+                color: '#8b5cf6',
+                tagline: 'Guaximão Caótico',
+                stats: { hp: 260, maxHp: 260, atk: 38, def: 12, ini: 46, crit: 30, ep: 0 },
+                skills: {
+                    s1: { name: 'Tapa Mortal', desc: 'Golpe rápido do Tae-Kwon-Mortal. (+20 EP)', ratio: 1.0, epGain: 20 },
+                    s2: { name: 'Hambone Caótico', desc: 'Bate no peito provocando. Aumenta Crítico (+20%) por 2 turnos. (+25 EP)', ratio: 0.6, epGain: 25, buffSelf: { crit: 20, turns: 2 } },
+                    s3: { name: 'Golpe do Livro Sagrado', desc: 'Ataque devastador proibido! Crítico garantido se o alvo tiver menos de 50% HP.', ratio: 2.3, epCost: 100, projColor: '#c084fc' }
+                }
+            },
+            benson: {
+                id: 'benson',
+                name: 'Benson',
+                type: 'forca',
+                img: 'benson.webp',
+                fallbackIcon: '🎰',
+                color: '#ef4444',
+                tagline: 'Gerente Disciplinado',
+                stats: { hp: 320, maxHp: 320, atk: 36, def: 18, ini: 26, crit: 15, ep: 0 },
+                skills: {
+                    s1: { name: 'Tiro de Chiclete', desc: 'Dispara esferas de chiclete duro. (+20 EP)', ratio: 0.95, epGain: 20 },
+                    s2: { name: 'Bronca Incandescente', desc: 'Grita furioso: Reduz ATK inimigo em 20% e aplica Queimadura! (+25 EP)', ratio: 0.5, epGain: 25, debuffTarget: { atkPct: -0.20, turns: 2 }, burn: 18 },
+                    s3: { name: 'ESTÃO DEMITIDOS!', desc: 'Explosão incandescente de raiva avermelhada pura!', ratio: 2.45, epCost: 100, projColor: '#ef4444' }
+                }
+            },
+            saltitas: {
+                id: 'saltitas',
+                name: 'Saltitão',
+                type: 'forca',
+                img: 'saltitas.webp',
+                fallbackIcon: '🦍',
+                color: '#10b981',
+                tagline: 'Guardião Imortal',
+                stats: { hp: 390, maxHp: 390, atk: 34, def: 28, ini: 20, crit: 10, ep: 0 },
+                skills: {
+                    s1: { name: 'Punho de Yeti', desc: 'Soco pesadíssimo imortal. (+20 EP)', ratio: 1.0, epGain: 20 },
+                    s2: { name: 'Meditação Imortal', desc: 'Restaura HP instantâneo (+55) e concede Regeneração (+20 HP/turno por 2 turnos). (+30 EP)', ratio: 0, heal: 55, epGain: 30, regen: 20, buffSelf: { def: 18, turns: 2 } },
+                    s3: { name: 'Fúria dos Bebês Eternos', desc: 'Invoca o poder celestial. Ignora 60% da defesa do alvo!', ratio: 2.15, epCost: 100, ignoreDef: 0.6, projColor: '#34d399' }
+                }
+            },
+            musculoso: {
+                id: 'musculoso',
+                name: 'Musculoso',
+                type: 'caos',
+                img: 'musculoso.webp',
+                fallbackIcon: '💪',
+                color: '#84cc16',
+                tagline: 'Lutador de Rua',
+                stats: { hp: 420, maxHp: 420, atk: 37, def: 14, ini: 18, crit: 20, ep: 0 },
+                skills: {
+                    s1: { name: 'Arremesso de Haltere', desc: 'Lança peso pesado de academia na cara. (+20 EP)', ratio: 1.05, epGain: 20 },
+                    s2: { name: 'MINHA MÃE!', desc: 'Sabe quem mais ganha +25% ATK? A MINHA MÃE! (+25 EP)', ratio: 0, epGain: 25, buffSelf: { atkPct: 0.25, crit: 15, turns: 2 } },
+                    s3: { name: 'Furacão de Camisa', desc: 'Gira a camisa como um furacão desferindo golpes pesados!', ratio: 2.4, epCost: 100, projColor: '#a3e635' }
+                }
+            },
+            parulito: {
+                id: 'parulito',
+                name: 'Pairulito',
+                type: 'cosmico',
+                img: 'parulito.webp',
+                fallbackIcon: '🍭',
+                color: '#ec4899',
+                tagline: 'Entidade Cósmica Gentle',
+                stats: { hp: 350, maxHp: 350, atk: 32, def: 20, ini: 24, crit: 12, ep: 0 },
+                skills: {
+                    s1: { name: 'Golpe de Bengala', desc: 'Estocada elegante. (+20 EP)', ratio: 0.95, epGain: 20 },
+                    s2: { name: 'Chá da Tarde', desc: 'Restaura 75 HP, concede 50 Escudo e Regeneração por 2 turnos. (+35 EP)', ratio: 0, heal: 75, epGain: 35, shield: 50, regen: 20 },
+                    s3: { name: 'Luz Divina Cósmica', desc: 'Transforma-se na forma celestial com feixes de energia da bondade!', ratio: 2.3, epCost: 100, projColor: '#f472b6' }
+                }
+            },
+            fantasmao: {
+                id: 'fantasmao',
+                name: 'Fantasmão',
+                type: 'cosmico',
+                img: 'fantasmao.webp',
+                fallbackIcon: '👻',
+                color: '#a855f7',
+                tagline: 'Espírito Evasivo',
+                stats: { hp: 290, maxHp: 290, atk: 35, def: 16, ini: 38, crit: 22, ep: 0 },
+                skills: {
+                    s1: { name: 'Tapa Astral', desc: 'Ataque fantasma voador. (+25 EP)', ratio: 0.95, epGain: 25 },
+                    s2: { name: 'Intangibilidade', desc: 'Fica diáfano: +55% chance de Esquiva e +20 DEF. (+30 EP)', ratio: 0.4, epGain: 30, buffSelf: { dodge: 55, def: 20, turns: 1 } },
+                    s3: { name: 'High-Five Sônico', desc: 'Toca Aqui explosivo astral! Drena 35 EP do inimigo e causa Atordoamento.', ratio: 2.2, epCost: 100, stealEp: 35, stun: true, projColor: '#c084fc' }
+                }
+            },
+            essquetelo: {
+                id: 'essquetelo',
+                name: 'Morte',
+                type: 'cosmico',
+                img: 'essquetelo.webp',
+                fallbackIcon: '💀',
+                color: '#64748b',
+                tagline: 'Ceifador do Rock',
+                stats: { hp: 310, maxHp: 310, atk: 42, def: 15, ini: 38, crit: 35, ep: 0 },
+                skills: {
+                    s1: { name: 'Corte da Foice', desc: 'Golpe afiado mortal. (+20 EP)', ratio: 1.05, epGain: 20 },
+                    s2: { name: 'Motoqueiro Infernal', desc: 'Acelera a moto: +15 INI e +20% Crítico por 2 turnos. (+25 EP)', ratio: 0.8, epGain: 25, buffSelf: { ini: 15, crit: 20, turns: 2 } },
+                    s3: { name: 'Colheita de Almas', desc: 'Golpe devastador da Morte. Rouba 35% do dano causado em HP!', ratio: 2.5, epCost: 100, lifesteal: 0.35, projColor: '#94a3b8' }
+                }
+            }
+        };
+
+        /* -------------------------------------------------------------
+         * 2. ARENA BACKGROUND ARTWORKS (4 Dynamic Themes)
+         * ------------------------------------------------------------- */
+        const ARENA_BACKGROUNDS = {
+            park: {
+                cssSky: 'linear-gradient(180deg, #090314 0%, #1a0b36 45%, #3b154c 75%, #63264c 100%)',
+                svgArt: `
+                    <div class="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-500 via-purple-900 to-transparent"></div>
+                    <div class="absolute bottom-14 left-1/2 -translate-x-1/2 w-full max-w-3xl h-36 opacity-30 flex justify-center items-end">
+                        <svg viewBox="0 0 500 150" class="w-full h-full text-indigo-950 fill-current">
+                            <path d="M180 150 V90 L250 40 L320 90 V150 Z" />
+                            <rect x="230" y="100" width="40" height="50" fill="#000" />
+                            <rect x="200" y="80" width="25" height="25" fill="#eab308" opacity="0.6"/>
+                            <rect x="275" y="80" width="25" height="25" fill="#eab308" opacity="0.6"/>
+                            <circle cx="90" cy="110" r="45" />
+                            <circle cx="410" cy="110" r="45" />
+                        </svg>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-emerald-800 to-emerald-950 border-t-4 border-emerald-400"></div>
+                `
+            },
+            coffee: {
+                cssSky: 'linear-gradient(180deg, #1e110a 0%, #3a1e12 50%, #4a2717 100%)',
+                svgArt: `
+                    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-500 via-stone-900 to-transparent"></div>
+                    <div class="absolute bottom-20 inset-x-8 h-32 border-b-4 border-amber-900/60 flex justify-around items-end opacity-25">
+                        <div class="w-20 h-28 bg-amber-950 rounded-t-lg"></div>
+                        <div class="w-24 h-24 bg-amber-950 rounded-t-lg"></div>
+                        <div class="w-16 h-30 bg-amber-950 rounded-t-lg"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-amber-900 to-stone-950 border-t-4 border-amber-500"></div>
+                `
+            },
+            arcade: {
+                cssSky: 'linear-gradient(180deg, #11052C 0%, #3D0075 50%, #6E006C 100%)',
+                svgArt: `
+                    <div class="absolute inset-0 opacity-40 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                    <div class="absolute top-8 inset-x-0 text-center font-title text-4xl text-cyan-300 opacity-20 tracking-widest">KING OF THE VIDEO GAMES</div>
+                    <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-purple-900 to-slate-950 border-t-4 border-pink-500"></div>
+                `
+            },
+            cosmic: {
+                cssSky: 'linear-gradient(180deg, #020008 0%, #0d0221 40%, #190538 100%)',
+                svgArt: `
+                    <div class="absolute inset-0 opacity-60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-600 via-pink-900 to-transparent"></div>
+                    <div class="absolute top-10 left-1/4 w-3 h-3 bg-white rounded-full animate-ping"></div>
+                    <div class="absolute top-20 right-1/3 w-2 h-2 bg-yellow-300 rounded-full animate-pulse"></div>
+                    <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-950 to-black border-t-4 border-cyan-400"></div>
+                `
+            }
+        };
+
+        /* -------------------------------------------------------------
+         * 3. STORY MODE CAMPAIGN CHAPTERS (Saga do Parque)
+         * ------------------------------------------------------------- */
+        const STORY_CHAPTERS = [
+            {
+                id: 1,
+                title: 'Capítulo 1: Manhã de Trabalho',
+                desc: 'Mordecai e Rigby discutem para ver quem vai varrer as folhas do Parque.',
+                playerKey: 'mordecai',
+                enemyKey: 'rigby',
+                stage: 'park',
+                dialoguePre: [
+                    { speaker: 'Rigby', text: 'Eu não vou varrer as folhas, Mordecai! Eu ganhei de você no Pedra, Papel e Tesoura!' },
+                    { speaker: 'Mordecai', text: 'Você roubou colocando "Fogo", Rigby! Isso nem existe! Vamos resolver isso num duelo!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Mordecai', text: 'Eu avisei, seu otário! Agora vai pegar a vassoura!' },
+                    { speaker: 'Rigby', text: 'Tudo bem... Mas o Benson ainda vai brigar com a gente...' }
+                ]
+            },
+            {
+                id: 2,
+                title: 'Capítulo 2: Bronca de Gerente',
+                desc: 'Benson pega Mordecai descansando na Cafeteria e ameaça demiti-lo.',
+                playerKey: 'mordecai',
+                enemyKey: 'benson',
+                stage: 'coffee',
+                dialoguePre: [
+                    { speaker: 'Benson', text: 'MORDECAI! Você deveria estar limpando as calçadas! VOCÊ ESTÁ PEDINDO PRA SER DEMITIDO!' },
+                    { speaker: 'Mordecai', text: 'Calma Benson, só estávamos tomando um café rápido! Não precisa gritar!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Benson', text: 'Argh... Você venceu dessa vez. Mas se a calçada não estiver limpa em 10 minutos, vocês já eram!' },
+                    { speaker: 'Mordecai', text: 'Ufa! Consegui enrolar o Benson!' }
+                ]
+            },
+            {
+                id: 3,
+                title: 'Capítulo 3: O Recorde do Fliperama',
+                desc: 'Musculoso desafia Mordecai no fliperama dos anos 80 por um lanche grátis.',
+                playerKey: 'mordecai',
+                enemyKey: 'musculoso',
+                stage: 'arcade',
+                dialoguePre: [
+                    { speaker: 'Musculoso', text: 'Sabe quem mais consegue bater o recorde mundial dessa máquina? A MINHA MÃE! Vence-me se for capaz, bro!' },
+                    { speaker: 'Mordecai', text: 'Prepare-se para perder esse lanche, Musculoso!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Musculoso', text: 'OH NÃO, MEU CHIP! Você é bom nisso, cara... Toma seu lanche!' },
+                    { speaker: 'Mordecai', text: 'Mandou bem! Valeu pelo lanche!' }
+                ]
+            },
+            {
+                id: 4,
+                title: 'Capítulo 4: Treino do Guardião',
+                desc: 'Saltitão treina Mordecai para dominar as técnicas imortais de combate.',
+                playerKey: 'mordecai',
+                enemyKey: 'saltitas',
+                stage: 'park',
+                dialoguePre: [
+                    { speaker: 'Saltitão', text: 'Eu já vi essa ameaça cósmica se aproximar mil anos atrás. Você precisa testar suas forças contra mim!' },
+                    { speaker: 'Mordecai', text: 'Estou pronto, Saltitão! Mostre o que você tem!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Saltitão', text: 'Você aprendeu rápido. Seus golpes estão fortes o suficiente para o confronto final.' }
+                ]
+            },
+            {
+                id: 5,
+                title: 'Capítulo 5: O Portal dos Espíritos',
+                desc: 'Fantasmão acidentalmente abre um portal astral no Parque.',
+                playerKey: 'mordecai',
+                enemyKey: 'fantasmao',
+                stage: 'cosmic',
+                dialoguePre: [
+                    { speaker: 'Fantasmão', text: 'Cara... Acho que toquei o disco ao contrário e libertei energia ectoplásmica no Parque!' },
+                    { speaker: 'Mordecai', text: 'Fantasmão! Precisamos fechar essa fenda antes que o Parque seja destruído!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Fantasmão', text: 'Boa! O portal se fechou! Toca aqui!' },
+                    { speaker: 'Mordecai', text: 'Isso aí! Toca aqui!' }
+                ]
+            },
+            {
+                id: 6,
+                title: 'Capítulo 6: O Ceifador do Rock',
+                desc: 'A Morte vem buscar a alma dos videogames e Mordecai deve vencer no duelo final.',
+                playerKey: 'mordecai',
+                enemyKey: 'essquetelo',
+                stage: 'cosmic',
+                dialoguePre: [
+                    { speaker: 'Morte', text: 'Chegou a sua hora, Mordecai! Ninguém vence a Morte no rock and roll ou no combate de arena!' },
+                    { speaker: 'Mordecai', text: 'Pelo Parque e pelos meus amigos... EU NÃO VOU PERDER!' }
+                ],
+                dialoguePost: [
+                    { speaker: 'Morte', text: 'IMPOSSÍVEL! Fui derrotado por um gaio-azul! Fico com a revanche no ano que vem...' },
+                    { speaker: 'Mordecai', text: 'NÓS VENCEMOS! O PARQUE ESTÁ SALVO! OOOOOOOOOOHHHHHHH!' }
+                ]
+            }
+        ];
+
+        /* -------------------------------------------------------------
+         * 4. TYPE ADVANTAGE CALCULATOR
+         * ------------------------------------------------------------- */
+        function getTypeMultiplier(attackerType, defenderType) {
+            if (attackerType === 'caos' && defenderType === 'cosmico') return 1.35;
+            if (attackerType === 'cosmico' && defenderType === 'forca') return 1.35;
+            if (attackerType === 'forca' && defenderType === 'caos') return 1.35;
+
+            if (attackerType === 'cosmico' && defenderType === 'caos') return 0.75;
+            if (attackerType === 'forca' && defenderType === 'cosmico') return 0.75;
+            if (attackerType === 'caos' && defenderType === 'forca') return 0.75;
+
+            return 1.0;
+        }
+
+        /* -------------------------------------------------------------
+         * 5. AUDIO SYNTHESIZER (Web Audio API)
+         * ------------------------------------------------------------- */
+        let audioEnabled = true;
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('soundIcon').innerText = audioEnabled ? '🔊' : '🔇';
+            document.getElementById('soundLabel').innerText = audioEnabled ? 'SOM: ON' : 'SOM: OFF';
+        }
+
+        function playSound(type) {
+            if (!audioEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
+                } else if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
+                } else if (type === 'crit') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(750, now + 0.12);
+                    osc.frequency.exponentialRampToValueAtTime(150, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
+                } else if (type === 'heal') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(350, now);
+                    osc.frequency.linearRampToValueAtTime(650, now + 0.25);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
+                } else if (type === 'battleStart') {
+                    const freqs = [220, 330, 440, 550];
+                    freqs.forEach((f, i) => {
+                        const o = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        o.connect(g); g.connect(ctx.destination);
+                        o.type = 'square';
+                        o.frequency.setValueAtTime(f, now + i * 0.06);
+                        g.gain.setValueAtTime(0.15, now + i * 0.06);
+                        g.gain.linearRampToValueAtTime(0.01, now + i * 0.06 + 0.1);
+                        o.start(now + i * 0.06); o.stop(now + i * 0.06 + 0.1);
+                    });
+                } else if (type === 'victory') {
+                    const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
+                    notes.forEach((freq, idx) => {
+                        const noteOsc = ctx.createOscillator();
+                        const noteGain = ctx.createGain();
+                        noteOsc.connect(noteGain); noteGain.connect(ctx.destination);
+                        noteOsc.type = 'triangle';
+                        noteOsc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        noteGain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                        noteGain.gain.linearRampToValueAtTime(0.01, now + idx * 0.12 + 0.3);
+                        noteOsc.start(now + idx * 0.12); noteOsc.stop(now + idx * 0.12 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.warn('Audio play error:', e);
+            }
+        }
+
+        /* -------------------------------------------------------------
+         * 6. QTE TIMING MINI-GAME ENGINE
+         * ------------------------------------------------------------- */
+        let qteActive = false;
+        let qteAnimId = null;
+        let qtePos = 0;
+        let qteDir = 1.8;
+        let pendingSkillContext = null;
+
+        function startQTEMiniGame(attacker, defender, skillNum) {
+            pendingSkillContext = { attacker, defender, skillNum };
+            qteActive = true;
+            qtePos = 0;
+            qteDir = 2.2;
+            
+            document.getElementById('qteOverlay').classList.remove('hidden');
+            
+            function animateQTE() {
+                if (!qteActive) return;
+                qtePos += qteDir;
+                if (qtePos >= 96 || qtePos <= 0) {
+                    qteDir *= -1;
+                }
+                document.getElementById('qteMarker').style.left = `${qtePos}%`;
+                qteAnimId = requestAnimationFrame(animateQTE);
+            }
+            animateQTE();
+        }
+
+        function triggerQTEHit() {
+            if (!qteActive) return;
+            qteActive = false;
+            cancelAnimationFrame(qteAnimId);
+            document.getElementById('qteOverlay').classList.add('hidden');
+
+            let timingResult = 'normal';
+            if (qtePos >= 44 && qtePos <= 54) {
+                timingResult = 'perfect';
+            } else if (qtePos >= 38 && qtePos <= 62) {
+                timingResult = 'good';
+            }
+
+            if (pendingSkillContext) {
+                const { attacker, defender, skillNum } = pendingSkillContext;
+                pendingSkillContext = null;
+                executeTurnWithTiming(attacker, defender, skillNum, timingResult);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && qteActive) {
+                e.preventDefault();
+                triggerQTEHit();
+            }
+        });
+
+        /* -------------------------------------------------------------
+         * 7. FLYING PROJECTILE VISUAL SYSTEM
+         * ------------------------------------------------------------- */
+        function triggerFlyingProjectile(fromP1, color = '#fef08a', callback) {
+            const proj = document.getElementById('flyingProjectile');
+            const startX = fromP1 ? 160 : window.innerWidth - 200;
+            const startY = fromP1 ? window.innerHeight - 200 : 180;
+            const targetX = fromP1 ? window.innerWidth - 200 : 160;
+            const targetY = fromP1 ? 180 : window.innerHeight - 200;
+
+            proj.style.left = `${startX}px`;
+            proj.style.top = `${startY}px`;
+            proj.style.background = color;
+            proj.style.boxShadow = `0 0 20px 5px ${color}`;
+            proj.style.width = '35px';
+            proj.style.height = '35px';
+            proj.style.borderRadius = '50%';
+            proj.classList.remove('hidden');
+
+            setTimeout(() => {
+                proj.style.left = `${targetX}px`;
+                proj.style.top = `${targetY}px`;
+            }, 20);
+
+            setTimeout(() => {
+                proj.classList.add('hidden');
+                if (callback) callback();
+            }, 420);
+        }
+
+        /* -------------------------------------------------------------
+         * 8. SELECTION SYSTEM & UI HANDLERS (FIXED & ROBUST)
+         * ------------------------------------------------------------- */
+        let gameMode = 'pve'; // 'story', 'pve', 'pvp'
+        let selectedP1Key = null;
+        let selectedP2Key = null;
+        let currentStoryChapter = null;
+        let storyDialogueIndex = 0;
+        let comboCount = 0;
+
+        let playerItems = {
+            coffee: 2,
+            sandwich: 1,
+            soda: 1
+        };
+
+        let gameState = {
+            active: false,
+            turn: 1,
+            round: 1,
+            stageKey: 'park',
+            p1: null,
+            p2: null
+        };
+
+        function showMainMenu() {
+            playSound('click');
+            gameState.active = false;
+            document.getElementById('battleScreen').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('storyMapScreen').classList.add('hidden');
+            document.getElementById('mainMenuScreen').classList.remove('hidden');
+            document.getElementById('arcadeSelectionBox').classList.add('hidden');
+        }
+
+        function initRoster() {
+            const grid = document.getElementById('rosterGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            Object.keys(CHARACTERS).forEach(key => {
+                const c = CHARACTERS[key];
+                const card = document.createElement('div');
+                card.className = `comic-card bg-slate-900 cursor-pointer p-2 rounded-xl border-2 border-slate-700 hover:border-yellow-400 flex flex-col items-center justify-between text-center relative group overflow-hidden`;
+                card.id = `roster-card-${key}`;
+                card.onclick = () => selectCharacter(key);
+
+                card.innerHTML = `
+                    <div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center p-1 border border-slate-800 pointer-events-none">
+                        <img src="${c.img}" alt="${c.name}" onerror="this.onerror=null; this.src='https://placehold.co/100x100/1e112a/ffffff?text=${encodeURIComponent(c.fallbackIcon)}';" class="w-full h-full object-contain filter drop-shadow">
+                    </div>
+                    <div class="mt-1.5 font-title text-sm text-yellow-300 tracking-wide pointer-events-none">${c.name}</div>
+                    <div class="text-[9px] text-gray-400 font-ui pointer-events-none">${c.tagline}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function setGameMode(mode) {
+            playSound('click');
+            gameMode = mode;
+            document.getElementById('arcadeSelectionBox').classList.remove('hidden');
+            document.getElementById('storyMapScreen').classList.add('hidden');
+            
+            const p2Tag = document.getElementById('p2Tag');
+            if (mode === 'pve') {
+                if (p2Tag) p2Tag.innerText = "OPONENTE (IA)";
+            } else {
+                if (p2Tag) p2Tag.innerText = "TREINADOR P2";
+            }
+
+            selectedP1Key = 'mordecai';
+            if (mode === 'pve') {
+                const keys = Object.keys(CHARACTERS).filter(k => k !== 'mordecai');
+                selectedP2Key = keys[Math.floor(Math.random() * keys.length)];
+            } else {
+                selectedP2Key = 'rigby';
+            }
+            updateSelectionUI();
+        }
+
+        function selectCharacter(key) {
+            playSound('click');
+            if (gameMode === 'pve') {
+                selectedP1Key = key;
+                const keys = Object.keys(CHARACTERS).filter(k => k !== key);
+                selectedP2Key = keys[Math.floor(Math.random() * keys.length)];
+            } else { // PvP Mode
+                if (!selectedP1Key || (selectedP1Key && selectedP2Key)) {
+                    selectedP1Key = key;
+                    selectedP2Key = null;
+                } else {
+                    if (key !== selectedP1Key) {
+                        selectedP2Key = key;
+                    }
+                }
+            }
+            updateSelectionUI();
+        }
+
+        function renderPreviewCard(charKey) {
+            if (!charKey) {
+                return `<div class="text-gray-400 text-center my-auto font-ui text-sm">Aguardando seleção...</div>`;
+            }
+            const c = CHARACTERS[charKey];
+            const typeInfo = TYPE_DATA[c.type];
+            return `
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-lg bg-slate-950 border border-slate-700 p-1 flex items-center justify-center">
+                            <img src="${c.img}" alt="${c.name}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/1e112a/ffffff?text=${encodeURIComponent(c.fallbackIcon)}';" class="w-full h-full object-contain">
+                        </div>
+                        <div>
+                            <h3 class="font-title text-xl text-yellow-300">${c.name}</h3>
+                            <p class="text-[11px] font-ui text-cyan-300">${c.tagline}</p>
+                        </div>
+                    </div>
+                    <span class="font-pixel text-[10px] px-2 py-1 rounded border border-slate-700 ${typeInfo.bg} ${typeInfo.color}">
+                        ${typeInfo.icon} ${typeInfo.name.toUpperCase()}
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-4 gap-1 text-[10px] font-pixel bg-slate-950 p-2 rounded-lg mb-2 border border-slate-800 text-center">
+                    <div>HP:<strong class="text-emerald-400 block">${c.stats.hp}</strong></div>
+                    <div>ATK:<strong class="text-yellow-300 block">${c.stats.atk}</strong></div>
+                    <div>DEF:<strong class="text-blue-300 block">${c.stats.def}</strong></div>
+                    <div>INI:<strong class="text-purple-300 block">${c.stats.ini}</strong></div>
+                </div>
+
+                <div class="space-y-0.5 text-[11px] font-body">
+                    <div class="truncate text-gray-300"><span class="font-title text-cyan-300">1. ${c.skills.s1.name}:</span> ${c.skills.s1.desc}</div>
+                    <div class="truncate text-gray-300"><span class="font-title text-purple-300">2. ${c.skills.s2.name}:</span> ${c.skills.s2.desc}</div>
+                    <div class="truncate text-gray-300"><span class="font-title text-rose-400">3. ${c.skills.s3.name}:</span> ${c.skills.s3.desc}</div>
+                </div>
+            `;
+        }
+
+        function updateSelectionUI() {
+            Object.keys(CHARACTERS).forEach(key => {
+                const card = document.getElementById(`roster-card-${key}`);
+                if (card) {
+                    card.classList.remove('ring-4', 'ring-cyan-400', 'ring-pink-500', 'border-cyan-400', 'border-pink-500');
+                    if (selectedP1Key === key) {
+                        card.classList.add('ring-4', 'ring-cyan-400', 'border-cyan-400');
+                    } else if (selectedP2Key === key) {
+                        card.classList.add('ring-4', 'ring-pink-500', 'border-pink-500');
+                    }
+                }
+            });
+
+            const statusEl = document.getElementById('selectionStatus');
+            const startBtn = document.getElementById('startBattleBtn');
+
+            if (!selectedP1Key) {
+                if (statusEl) statusEl.innerHTML = `<span class="font-ui font-bold text-base text-cyan-300">JOGADOR 1: Escolha seu lutador!</span>`;
+                if (startBtn) startBtn.disabled = true;
+            } else if (gameMode === 'pvp' && !selectedP2Key) {
+                if (statusEl) statusEl.innerHTML = `<span class="font-ui font-bold text-base text-pink-400">JOGADOR 2: Escolha seu lutador!</span>`;
+                if (startBtn) startBtn.disabled = true;
+            } else {
+                if (statusEl) statusEl.innerHTML = `<span class="font-ui font-bold text-base text-yellow-300">PRONTO PARA O DUELO NO PARQUE! CLIQUE ABAIXO!</span>`;
+                if (startBtn) startBtn.disabled = false;
+            }
+
+            const p1Prev = document.getElementById('p1PreviewContent');
+            const p2Prev = document.getElementById('p2PreviewContent');
+            if (p1Prev) p1Prev.innerHTML = renderPreviewCard(selectedP1Key);
+            if (p2Prev) p2Prev.innerHTML = renderPreviewCard(selectedP2Key);
+        }
+
+        /* -------------------------------------------------------------
+         * 9. STORY MODE SYSTEM & CAMPAIGN MAP
+         * ------------------------------------------------------------- */
+        function getSavedStoryProgress() {
+            return parseInt(localStorage.getItem('apenas_um_duelo_story_progress') || '1');
+        }
+
+        function saveStoryProgress(levelId) {
+            const current = getSavedStoryProgress();
+            if (levelId > current) {
+                localStorage.setItem('apenas_um_duelo_story_progress', levelId.toString());
+            }
+        }
+
+        function openStoryMode() {
+            playSound('click');
+            gameMode = 'story';
+            document.getElementById('mainMenuScreen').classList.add('hidden');
+            document.getElementById('storyMapScreen').classList.remove('hidden');
+
+            renderStoryChapterGrid();
+        }
+
+        function renderStoryChapterGrid() {
+            const grid = document.getElementById('storyChapterGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const unlockedMax = getSavedStoryProgress();
+
+            STORY_CHAPTERS.forEach(ch => {
+                const isUnlocked = ch.id <= unlockedMax;
+                const card = document.createElement('div');
+                card.className = `retro-status-card p-4 flex flex-col justify-between border-2 ${isUnlocked ? 'border-yellow-400 hover:border-cyan-300 cursor-pointer' : 'border-slate-800 opacity-60 cursor-not-allowed'}`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-pixel text-[10px] text-yellow-400">CAPÍTULO ${ch.id}</span>
+                            <span class="text-xs">${isUnlocked ? (ch.id < unlockedMax ? '✅ COMPLETO' : '⭐ DISPONÍVEL') : '🔒 BLOQUEADO'}</span>
+                        </div>
+                        <h3 class="font-title text-xl text-cyan-300 mb-1">${ch.title}</h3>
+                        <p class="text-xs font-body text-gray-300">${ch.desc}</p>
+                    </div>
+
+                    <button ${isUnlocked ? `onclick="startStoryChapter(${ch.id})"` : 'disabled'} class="mt-4 comic-card ${isUnlocked ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-slate-800 text-gray-500'} font-title text-lg py-1.5 px-4 rounded-xl border border-black">
+                        ${isUnlocked ? '⚔️ INICIAR CAPÍTULO' : '🔒 BLOQUEADO'}
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function startStoryChapter(chapterId) {
+            playSound('click');
+            currentStoryChapter = STORY_CHAPTERS.find(c => c.id === chapterId);
+            if (!currentStoryChapter) return;
+
+            selectedP1Key = currentStoryChapter.playerKey;
+            selectedP2Key = currentStoryChapter.enemyKey;
+            gameState.stageKey = currentStoryChapter.stage;
+
+            storyDialogueIndex = 0;
+            showStoryDialogue(currentStoryChapter.dialoguePre, () => {
+                startBattle();
+            });
+        }
+
+        function showStoryDialogue(dialogueArray, onCompleteCallback) {
+            const modal = document.getElementById('storyCutsceneModal');
+            modal.classList.remove('hidden');
+
+            window.currentDialogueArray = dialogueArray;
+            window.dialogueCompleteCallback = onCompleteCallback;
+
+            renderDialogueStep();
+        }
+
+        function renderDialogueStep() {
+            const arr = window.currentDialogueArray;
+            if (storyDialogueIndex >= arr.length) {
+                document.getElementById('storyCutsceneModal').classList.add('hidden');
+                if (window.dialogueCompleteCallback) window.dialogueCompleteCallback();
+                return;
+            }
+
+            const step = arr[storyDialogueIndex];
+            const speakerChar = CHARACTERS[step.speaker.toLowerCase()] || CHARACTERS['mordecai'];
+
+            document.getElementById('cutsceneSpeaker').innerText = step.speaker.toUpperCase();
+            document.getElementById('cutsceneAvatar').src = speakerChar.img;
+            document.getElementById('cutsceneAvatar').onerror = function() {
+                this.src = `https://placehold.co/120x120/1e112a/ffffff?text=${encodeURIComponent(speakerChar.fallbackIcon)}`;
+            };
+            document.getElementById('cutsceneText').innerText = step.text;
+        }
+
+        function advanceStoryDialogue() {
+            playSound('click');
+            storyDialogueIndex++;
+            renderDialogueStep();
+        }
+
+        /* -------------------------------------------------------------
+         * 10. COMBAT LOOP & TURN EXECUTION
+         * ------------------------------------------------------------- */
+        function createFighterState(charKey, isP1) {
+            const base = CHARACTERS[charKey];
+            return {
+                id: base.id,
+                name: base.name,
+                type: base.type,
+                img: base.img,
+                fallbackIcon: base.fallbackIcon,
+                color: base.color,
+                isP1: isP1,
+                hp: base.stats.hp,
+                maxHp: base.stats.hp,
+                atk: base.stats.atk,
+                def: base.stats.def,
+                ini: base.stats.ini,
+                crit: base.stats.crit,
+                ep: 0,
+                maxEp: 100,
+                shield: 0,
+                burnTurns: 0,
+                regenTurns: 0,
+                stunned: false,
+                buffs: [],
+                skills: JSON.parse(JSON.stringify(base.skills))
+            };
+        }
+
+        function startBattle() {
+            playSound('battleStart');
+
+            const flash = document.getElementById('flashOverlay');
+            flash.style.opacity = '1';
+            setTimeout(() => flash.style.opacity = '0', 300);
+
+            if (gameMode !== 'story') {
+                const stageSel = document.getElementById('stageSelect');
+                gameState.stageKey = stageSel ? stageSel.value : 'park';
+            }
+
+            gameState.p1 = createFighterState(selectedP1Key, true);
+            gameState.p2 = createFighterState(selectedP2Key, false);
+            gameState.round = 1;
+            gameState.active = true;
+            comboCount = 0;
+
+            gameState.turn = gameState.p1.ini >= gameState.p2.ini ? 1 : 2;
+            playerItems = { coffee: 2, sandwich: 1, soda: 1 };
+
+            document.getElementById('mainMenuScreen').classList.add('hidden');
+            document.getElementById('storyMapScreen').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('battleScreen').classList.remove('hidden');
+
+            setupArenaBackground(gameState.stageKey);
+            setupArenaSprites();
+            updateBattleUI();
+
+            setDialogueText(`⚔️ Duelo iniciado no Parque entre ${gameState.p1.name} e ${gameState.p2.name}!`);
+
+            if (gameState.turn === 2 && (gameMode === 'pve' || gameMode === 'story')) {
+                setTimeout(triggerAITurn, 1200);
+            }
+        }
+
+        function setupArenaBackground(stageKey) {
+            const bgData = ARENA_BACKGROUNDS[stageKey] || ARENA_BACKGROUNDS.park;
+            const stageBox = document.getElementById('arenaStage');
+            const bgContainer = document.getElementById('bgArtContainer');
+
+            stageBox.style.background = bgData.cssSky;
+            bgContainer.innerHTML = bgData.svgArt;
+        }
+
+        function setupArenaSprites() {
+            const p1Sprite = document.getElementById('playerSprite');
+            const p2Sprite = document.getElementById('enemySprite');
+
+            p1Sprite.innerHTML = `<img src="${gameState.p1.img}" alt="${gameState.p1.name}" onerror="this.onerror=null; this.src='https://placehold.co/180x220/1e112a/ffffff?text=${encodeURIComponent(gameState.p1.fallbackIcon)}';" class="w-full h-full object-contain">`;
+            p2Sprite.innerHTML = `<img src="${gameState.p2.img}" alt="${gameState.p2.name}" onerror="this.onerror=null; this.src='https://placehold.co/180x220/1e112a/ffffff?text=${encodeURIComponent(gameState.p2.fallbackIcon)}';" class="w-full h-full object-contain transform -scale-x-100">`;
+        }
+
+        function getEffectiveStat(fighter, statName) {
+            let val = fighter[statName];
+            fighter.buffs.forEach(b => {
+                if (b.stat === statName) {
+                    val += b.value;
+                } else if (b.stat === 'atkPct' && statName === 'atk') {
+                    val += fighter.atk * b.value;
+                }
+            });
+            return Math.max(0, Math.round(val));
+        }
+
+        function executeSkill(skillNum) {
+            if (!gameState.active) return;
+            const isP1 = gameState.turn === 1;
+            const isHumanTurn = isP1 || (gameMode === 'pvp');
+
+            if (!isHumanTurn) return;
+
+            const attacker = isP1 ? gameState.p1 : gameState.p2;
+            const defender = isP1 ? gameState.p2 : gameState.p1;
+
+            startQTEMiniGame(attacker, defender, skillNum);
+        }
+
+        function executeTurnWithTiming(attacker, defender, skillNum, timingResult = 'normal') {
+            const skillKey = `s${skillNum}`;
+            const skill = attacker.skills[skillKey];
+
+            if (attacker.stunned) {
+                attacker.stunned = false;
+                setDialogueText(`💫 ${attacker.name} está atordoado e perdeu o turno!`);
+                showPopupText(attacker.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `ATORDOADO!`, 'text-purple-300');
+                advanceTurn();
+                return;
+            }
+
+            triggerFlyingProjectile(attacker.isP1, skill.projColor || '#fef08a', () => {
+                continueTurnExecution(attacker, defender, skillNum, timingResult);
+            });
+        }
+
+        function continueTurnExecution(attacker, defender, skillNum, timingResult) {
+            const skillKey = `s${skillNum}`;
+            const skill = attacker.skills[skillKey];
+
+            const spriteWrapId = attacker.isP1 ? 'playerSpriteWrap' : 'enemySpriteWrap';
+            const attackClass = attacker.isP1 ? 'attack-left' : 'attack-right';
+            const spriteEl = document.getElementById(spriteWrapId);
+            if (spriteEl) {
+                spriteEl.classList.add(attackClass);
+                setTimeout(() => spriteEl.classList.remove(attackClass), 500);
+            }
+
+            if (skill.epCost) {
+                attacker.ep = Math.max(0, attacker.ep - skill.epCost);
+                playSound('crit');
+                spawnParticleExplosion(attacker.isP1 ? 250 : window.innerWidth - 250, window.innerHeight / 2, '#f43f5e');
+            } else if (skill.epGain) {
+                attacker.ep = Math.min(attacker.maxEp, attacker.ep + skill.epGain);
+                playSound(skillNum === 1 ? 'hit' : 'heal');
+            }
+
+            if (skill.heal) {
+                const oldHp = attacker.hp;
+                attacker.hp = Math.min(attacker.maxHp, attacker.hp + skill.heal);
+                showPopupText(attacker.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `+${attacker.hp - oldHp} HP`, 'text-emerald-400');
+                playSound('heal');
+            }
+
+            if (skill.shield) {
+                attacker.shield += skill.shield;
+                showPopupText(attacker.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `+${skill.shield} ESCUDO`, 'text-cyan-300');
+            }
+
+            if (skill.regen) attacker.regenTurns = 2;
+            if (skill.burn) defender.burnTurns = 2;
+            if (skill.stun) defender.stunned = true;
+
+            if (skill.buffSelf) {
+                Object.keys(skill.buffSelf).forEach(stat => {
+                    if (stat !== 'turns') attacker.buffs.push({ stat: stat, value: skill.buffSelf[stat], turns: skill.buffSelf.turns });
+                });
+            }
+
+            if (skill.debuffTarget) {
+                Object.keys(skill.debuffTarget).forEach(stat => {
+                    if (stat !== 'turns') defender.buffs.push({ stat: stat, value: skill.debuffTarget[stat], turns: skill.debuffTarget.turns });
+                });
+            }
+
+            if (skill.ratio > 0) {
+                const dodgeBuff = defender.buffs.find(b => b.stat === 'dodge');
+                const dodgeChance = dodgeBuff ? dodgeBuff.value : 0;
+                
+                if (Math.random() * 100 < dodgeChance) {
+                    showPopupText(defender.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `ERROU!`, 'text-purple-300');
+                    setDialogueText(`${defender.name} esquivou com agilidade!`);
+                    comboCount = 0;
+                } else {
+                    const effectiveAtk = getEffectiveStat(attacker, 'atk');
+                    let effectiveDef = getEffectiveStat(defender, 'def');
+                    if (skill.ignoreDef) effectiveDef *= (1 - skill.ignoreDef);
+
+                    const typeMult = getTypeMultiplier(attacker.type, defender.type);
+                    
+                    let timingMult = 1.0;
+                    if (timingResult === 'perfect') timingMult = 1.30;
+                    else if (timingResult === 'good') timingMult = 1.15;
+
+                    comboCount = Math.min(4, comboCount + 1);
+                    const comboMult = 1 + (comboCount * 0.05);
+
+                    let baseDmg = effectiveAtk * skill.ratio * typeMult * timingMult * comboMult;
+                    let armorReduction = effectiveDef / (effectiveDef + 50);
+                    let finalDmg = Math.max(10, Math.round(baseDmg * (1 - armorReduction)));
+
+                    const effectiveCrit = getEffectiveStat(attacker, 'crit');
+                    let isCrit = Math.random() * 100 < effectiveCrit;
+
+                    if (isCrit) {
+                        finalDmg = Math.round(finalDmg * 1.6);
+                        playSound('crit');
+                        showPopupText(defender.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `CRÍTICO! -${finalDmg}`, 'text-yellow-300');
+                        spawnParticleExplosion(defender.isP1 ? 250 : window.innerWidth - 250, window.innerHeight / 2, '#facc15');
+                    } else {
+                        showPopupText(defender.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `-${finalDmg}`, 'text-rose-400');
+                    }
+
+                    let typeMsg = "";
+                    if (typeMult > 1.0) typeMsg = " ⚡ SUPER EFETIVO!";
+                    else if (typeMult < 1.0) typeMsg = " 🛡️ POUCO EFETIVO...";
+
+                    let timingMsg = "";
+                    if (timingResult === 'perfect') timingMsg = " 🔥 TIMING PERFEITO!";
+
+                    setDialogueText(`${attacker.name} usou ${skill.name.toUpperCase()}!${typeMsg}${timingMsg} (${finalDmg} dano)`);
+
+                    const defenderWrap = document.getElementById(defender.isP1 ? 'playerSpriteWrap' : 'enemySpriteWrap');
+                    if (defenderWrap) {
+                        defenderWrap.classList.add('hurt-anim');
+                        setTimeout(() => defenderWrap.classList.remove('hurt-anim'), 500);
+                    }
+
+                    if (defender.shield > 0) {
+                        if (defender.shield >= finalDmg) {
+                            defender.shield -= finalDmg;
+                            finalDmg = 0;
+                        } else {
+                            finalDmg -= defender.shield;
+                            defender.shield = 0;
+                        }
+                    }
+
+                    defender.hp = Math.max(0, defender.hp - finalDmg);
+                    defender.ep = Math.min(defender.maxEp, defender.ep + 10);
+                }
+            }
+
+            if (defender.hp <= 0) {
+                const defenderWrap = document.getElementById(defender.isP1 ? 'playerSpriteWrap' : 'enemySpriteWrap');
+                if (defenderWrap) defenderWrap.classList.add('faint-anim');
+                setDialogueText(`${defender.name} foi derrotado!`);
+                setTimeout(() => endBattle(attacker), 1000);
+                return;
+            }
+
+            advanceTurn();
+        }
+
+        function advanceTurn() {
+            const currentFighter = gameState.turn === 1 ? gameState.p1 : gameState.p2;
+            
+            if (currentFighter.burnTurns > 0) {
+                currentFighter.hp = Math.max(0, currentFighter.hp - 18);
+                currentFighter.burnTurns--;
+                showPopupText(currentFighter.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `-18 QUEIMADURA`, 'text-orange-400');
+            }
+
+            if (currentFighter.regenTurns > 0) {
+                currentFighter.hp = Math.min(currentFighter.maxHp, currentFighter.hp + 20);
+                currentFighter.regenTurns--;
+                showPopupText(currentFighter.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `+20 REGEN`, 'text-emerald-400');
+            }
+
+            currentFighter.buffs.forEach(b => b.turns -= 1);
+            currentFighter.buffs = currentFighter.buffs.filter(b => b.turns > 0);
+
+            gameState.turn = gameState.turn === 1 ? 2 : 1;
+            if (gameState.turn === 1) gameState.round += 1;
+
+            updateBattleUI();
+
+            if (gameState.turn === 2 && (gameMode === 'pve' || gameMode === 'story') && gameState.active) {
+                setTimeout(triggerAITurn, 1000);
+            }
+        }
+
+        function triggerAITurn() {
+            if (!gameState.active || gameState.turn !== 2) return;
+            const bot = gameState.p2;
+            const player = gameState.p1;
+            let chosenSkill = 1;
+
+            if (bot.ep >= 100) chosenSkill = 3;
+            else if ((bot.hp / bot.maxHp) < 0.40 && (bot.skills.s2.heal || bot.skills.s2.buffSelf)) chosenSkill = 2;
+            else if (Math.random() > 0.5) chosenSkill = 2;
+
+            executeTurnWithTiming(bot, player, chosenSkill, 'normal');
+        }
+
+        function updateBattleUI() {
+            const p1 = gameState.p1;
+            const p2 = gameState.p2;
+
+            document.getElementById('playerName').innerText = p1.name.toUpperCase();
+            document.getElementById('playerTypeBadge').innerText = TYPE_DATA[p1.type].icon;
+            
+            const p1HpPct = Math.max(0, (p1.hp / p1.maxHp) * 100);
+            const p1HpBar = document.getElementById('playerHpBar');
+            p1HpBar.style.width = `${p1HpPct}%`;
+            p1HpBar.className = `h-full transition-all duration-500 rounded-full ${p1HpPct > 50 ? 'bg-gradient-to-r from-emerald-500 to-green-400' : p1HpPct > 20 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' : 'bg-gradient-to-r from-rose-600 to-red-500'}`;
+            document.getElementById('playerHpText').innerText = `${p1.hp} / ${p1.maxHp}` + (p1.shield > 0 ? ` (+${p1.shield})` : '');
+            document.getElementById('playerEpBar').style.width = `${p1.ep}%`;
+            renderBuffIcons('playerBuffs', p1);
+
+            document.getElementById('enemyName').innerText = p2.name.toUpperCase();
+            document.getElementById('enemyTypeBadge').innerText = TYPE_DATA[p2.type].icon;
+
+            const p2HpPct = Math.max(0, (p2.hp / p2.maxHp) * 100);
+            const p2HpBar = document.getElementById('enemyHpBar');
+            p2HpBar.style.width = `${p2HpPct}%`;
+            p2HpBar.className = `h-full transition-all duration-500 rounded-full ${p2HpPct > 50 ? 'bg-gradient-to-r from-emerald-500 to-green-400' : p2HpPct > 20 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' : 'bg-gradient-to-r from-rose-600 to-red-500'}`;
+            document.getElementById('enemyEpBar').style.width = `${p2.ep}%`;
+            renderBuffIcons('enemyBuffs', p2);
+
+            document.getElementById('turnRoundBadge').innerText = `RODADA ${gameState.round}`;
+            
+            const mult = getTypeMultiplier(p1.type, p2.type);
+            const banner = document.getElementById('matchupBanner');
+            if (mult > 1.0) banner.innerText = `⚡ VANTAGEM DE TIPO: ${p1.name} causa +35% de dano em ${p2.name}!`;
+            else if (mult < 1.0) banner.innerText = `🛡️ DESVANTAGEM DE TIPO: ${p1.name} causa -25% de dano em ${p2.name}!`;
+            else banner.innerText = `⚖️ DUELO EQUILIBRADO: Dano normal de tipo.`;
+
+            const comboBadge = document.getElementById('comboHypeBadge');
+            if (comboCount > 0) {
+                comboBadge.classList.remove('hidden');
+                comboBadge.innerText = `🔥 HYPE COMBO x${comboCount} (+${comboCount*5}%)`;
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+
+            const activeFighter = gameState.turn === 1 ? p1 : p2;
+            const isHumanTurn = (gameState.turn === 1) || (gameState.turn === 2 && gameMode === 'pvp');
+
+            if (isHumanTurn) {
+                document.getElementById('aiStatusBadge').classList.add('hidden');
+                const s = activeFighter.skills;
+                document.getElementById('s1Name').innerText = s.s1.name;
+                document.getElementById('s2Name').innerText = s.s2.name;
+                document.getElementById('s3Name').innerText = s.s3.name;
+
+                const lockOverlay = document.getElementById('s3LockOverlay');
+                const btn3 = document.getElementById('btnSkill3');
+                if (activeFighter.ep >= 100) {
+                    lockOverlay.classList.add('hidden');
+                    btn3.disabled = false;
+                } else {
+                    lockOverlay.classList.remove('hidden');
+                    btn3.disabled = true;
+                }
+            } else {
+                document.getElementById('aiStatusBadge').classList.remove('hidden');
+            }
+        }
+
+        function renderBuffIcons(containerId, fighter) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            fighter.buffs.forEach(b => {
+                const badge = document.createElement('span');
+                badge.className = 'px-1 py-0.2 rounded text-[8px] font-pixel bg-purple-900 text-purple-200 border border-purple-500';
+                badge.innerText = `${b.stat.substring(0,3).toUpperCase()}`;
+                container.appendChild(badge);
+            });
+        }
+
+        function setDialogueText(text) {
+            document.getElementById('dialogueText').innerText = text;
+        }
+
+        /* -------------------------------------------------------------
+         * 11. BAG & ITEMS
+         * ------------------------------------------------------------- */
+        function openBagMenu() {
+            playSound('click');
+            document.getElementById('countCoffee').innerText = `x${playerItems.coffee}`;
+            document.getElementById('countSandwich').innerText = `x${playerItems.sandwich}`;
+            document.getElementById('countSoda').innerText = `x${playerItems.soda}`;
+            document.getElementById('bagModal').classList.remove('hidden');
+        }
+
+        function closeBagMenu() {
+            playSound('click');
+            document.getElementById('bagModal').classList.add('hidden');
+        }
+
+        function useBagItem(itemKey) {
+            if (playerItems[itemKey] <= 0) return;
+
+            const activeFighter = gameState.turn === 1 ? gameState.p1 : gameState.p2;
+            playerItems[itemKey]--;
+            closeBagMenu();
+
+            if (itemKey === 'coffee') {
+                activeFighter.hp = Math.min(activeFighter.maxHp, activeFighter.hp + 90);
+                activeFighter.ep = Math.min(activeFighter.maxEp, activeFighter.ep + 20);
+                showPopupText(activeFighter.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `+90 HP`, 'text-emerald-400');
+                playSound('heal');
+                setDialogueText(`${activeFighter.name} tomou o Café Expresso da Margaret! HP e EP restaurados!`);
+            } else if (itemKey === 'sandwich') {
+                activeFighter.hp = Math.min(activeFighter.maxHp, activeFighter.hp + 150);
+                activeFighter.buffs = [];
+                showPopupText(activeFighter.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `+150 HP`, 'text-emerald-400');
+                playSound('heal');
+                setDialogueText(`${activeFighter.name} comeu o Sanduíche Mortal! Recuperação de HP!`);
+            } else if (itemKey === 'soda') {
+                activeFighter.ep = 100;
+                showPopupText(activeFighter.isP1 ? 'playerDmgAnchor' : 'enemyDmgAnchor', `100 EP MAX`, 'text-cyan-300');
+                playSound('special');
+                setDialogueText(`${activeFighter.name} tomou a Soda Hiperenergética! EP no Máximo!`);
+            }
+
+            updateBattleUI();
+            advanceTurn();
+        }
+
+        /* -------------------------------------------------------------
+         * 12. POPUPS & PARTICLES
+         * ------------------------------------------------------------- */
+        function showPopupText(anchorId, text, colorClasses) {
+            const anchor = document.getElementById(anchorId);
+            if (!anchor) return;
+
+            const popup = document.createElement('div');
+            popup.className = `dmg-popup ${colorClasses}`;
+            popup.innerText = text;
+            popup.style.left = `${(Math.random() - 0.5) * 30}px`;
+
+            anchor.appendChild(popup);
+            setTimeout(() => popup.remove(), 1200);
+        }
+
+        const canvas = document.getElementById('fxCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function spawnParticleExplosion(x, y, color) {
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 14,
+                    vy: (Math.random() - 0.5) * 14,
+                    radius: Math.random() * 6 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.015
+                });
+            }
+        }
+
+        function renderParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    particles.splice(index, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+            requestAnimationFrame(renderParticles);
+        }
+        renderParticles();
+
+        /* -------------------------------------------------------------
+         * 13. END GAME & VICTORY MODAL
+         * ------------------------------------------------------------- */
+        function endBattle(winner) {
+            gameState.active = false;
+            playSound('victory');
+
+            if (gameMode === 'story' && winner.isP1 && currentStoryChapter) {
+                saveStoryProgress(currentStoryChapter.id + 1);
+                showStoryDialogue(currentStoryChapter.dialoguePost, () => {
+                    displayVictoryModal(winner);
+                });
+            } else {
+                displayVictoryModal(winner);
+            }
+        }
+
+        function displayVictoryModal(winner) {
+            const modal = document.getElementById('victoryModal');
+            const winnerTitle = document.getElementById('winnerTitle');
+            const winnerSub = document.getElementById('winnerSub');
+
+            winnerTitle.innerText = `${winner.name.toUpperCase()} VENCEU!`;
+            winnerSub.innerText = `${winner.name} foi o grande campeão da batalha no Parque!`;
+
+            modal.classList.remove('hidden');
+        }
+
+        function rematch() {
+            playSound('click');
+            document.getElementById('victoryModal').classList.add('hidden');
+            startBattle();
+        }
+
+        /* -------------------------------------------------------------
+         * INITIALIZATION ON PAGE LOAD
+         * ------------------------------------------------------------- */
+        window.onload = function() {
+            initRoster();
+            setGameMode('pve');
+        };
+    </script>
+</body>
+</html>
